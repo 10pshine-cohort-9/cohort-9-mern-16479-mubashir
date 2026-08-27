@@ -5,9 +5,11 @@ import {useAuth} from '../context/AuthContext';
 import axios from 'axios';
 import './LoginPage.css';
 import {NotebookPen,Mail,LockIcon} from 'lucide-react';
+import {validateEmail} from '../utils/validation'
 
 function LoginPage(){
     const [email,setEmail]= useState('');
+    const [emailError,setEmailError] = useState('');
     const [password,setPassword] = useState('');
     const [error,setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -15,11 +17,21 @@ function LoginPage(){
     const {login} = useAuth();
     const navigate  = useNavigate();
 
+    function handleEmailBlur(){
+        setEmailError(validateEmail(email) ?? '')
+    }
+
+
     async function handleSubmit(e:FormEvent<HTMLFormElement>){
         e.preventDefault();
         setError('');
         setIsSubmitting(true);
-
+        const emailValidationError = validateEmail(email)
+        if(emailValidationError){
+            setEmailError(emailValidationError);
+            return;
+        }
+        setIsSubmitting(true);
         try{
             await login(email,password);
             navigate('/dashboard');
@@ -87,9 +99,11 @@ function LoginPage(){
           className="LoginInput"
           placeholder="you@example.com"
           value={email}
+          onBlur={handleEmailBlur}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
+        {emailError && <p className="LoginError">{emailError}</p>}
         </div>
         </div>
 

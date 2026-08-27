@@ -4,6 +4,7 @@ import {Link, useNavigate} from 'react-router-dom';
 import {useAuth} from '../context/AuthContext';
 import axios from 'axios';
 import {NotebookPen,User,Mail,LockIcon} from 'lucide-react';
+import {validateEmail,validatePassword,validateName} from '../utils/validation';
 import './SignupPage.css'
 
 function SignupPage(){
@@ -12,16 +13,41 @@ function SignupPage(){
     const [password,setPassword] = useState('');
     const [error,setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [nameError,setNameError] = useState('');
+    const [emailError,setEmailError] = useState('');
+    const [passwordError,setPasswordError] = useState('');
 
     const {signup} = useAuth();
     const navigate = useNavigate();
 
+    function handleNameBlur(){
+        setNameError(validateName(name) ?? '')
+    }
+    
+    function handleEmailBlur(){
+        setEmailError(validateEmail(email) ?? '')
+    }
+    
+    function handlePasswordBlur(){
+        setPasswordError(validatePassword(password) ?? '')
+    }
 
     async function handleSubmit(e:FormEvent<HTMLFormElement>){
         e.preventDefault();
         setError('');
         setIsSubmitting(true);
 
+        const nameValidationError = validateName(name)
+        const emailValidationError = validateEmail(email)
+        const passwordValidationError = validatePassword(password)
+
+        if(nameValidationError || emailValidationError || passwordValidationError){
+            setNameError(nameValidationError ?? '');
+            setEmailError(emailValidationError ?? '');
+            setPasswordError(passwordValidationError ?? '');
+            return;
+        }
+        setIsSubmitting(true);
         try{
             await signup(name,email,password);
             navigate('/dashboard');
@@ -81,7 +107,8 @@ function SignupPage(){
             <label htmlFor="name" className="SignupLabel">Name</label>
             <div className="SignupInputWrapper">
             <User size={17} className="SignupInputIcon"/>
-            <input id="name" type="text" className="SignupInput" placeholder="Enter your name" value={name} onChange={(e)=>setName(e.target.value)} required/>
+            <input id="name" type="text" className="SignupInput" placeholder="Enter your name" onBlur={handleNameBlur} value={name} onChange={(e)=>setName(e.target.value)} required/>
+            {nameError && <p className="SignupError">{nameError}</p>}
             </div>
             </div>
     
@@ -89,7 +116,8 @@ function SignupPage(){
             <label htmlFor="email" className="SignupLabel">Email</label>
             <div className="SignupInputWrapper">
             <Mail size={17} className="SignupInputIcon"/>
-            <input id="email" type="email" className="SignupInput" placeholder="Enter your email" value={email} onChange={(e)=>setEmail(e.target.value)} required/>
+            <input id="email" type="email" className="SignupInput" placeholder="Enter your email" value={email} onBlur={handleEmailBlur} onChange={(e)=>setEmail(e.target.value)} required/>
+            {emailError && <p className="SignupError">{emailError}</p>}
             </div>
             </div>
     
@@ -97,7 +125,8 @@ function SignupPage(){
             <label htmlFor="password" className="SignupLabel">Password</label>
             <div className="SignupInputWrapper">
             <LockIcon size={17} className="SignupInputIcon"/>
-            <input id="password" type="password" className="SignupInput" placeholder="Enter your password" value={password} onChange={(e)=>setPassword(e.target.value)} required minLength={8}/>
+            <input id="password" type="password" className="SignupInput" placeholder="Enter your password" value={password} onBlur={handlePasswordBlur} onChange={(e)=>setPassword(e.target.value)} required minLength={8}/>
+            {passwordError && <p className="SignupError">{passwordError}</p>}
             </div>
             </div>
     

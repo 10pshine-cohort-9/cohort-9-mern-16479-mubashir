@@ -2,43 +2,25 @@ import {Request,Response} from 'express';
 import AppError from '../utils/Errors';
 import asyncHandler from '../utils/asyncHandler';
 import notesService from '../services/notes.service';
-
-
-interface CreateNoteBody{
-    title: string;
-    content?: string;
-}
-
-interface UpdateNoteBody{
-    title?: string;
-    content?: string;
-}
+import { createNoteSchema, updateNoteSchema, notesQuerySchema } from '../validators/notes.validator';
+import type { CreateNoteInput, UpdateNoteInput } from '../validators/notes.validator';
+import parseOrThrow from '../utils/parseOrThrow';
 
 interface NoteParams{
     id : string;
 }
 
-const createNote = asyncHandler(async (req:Request<{},{},CreateNoteBody>, res:Response) => {
-    const {title,content} = req.body;
-
-    if(typeof title !== 'string' || title.trim().length === 0){
-        throw new AppError('Title is Required', 400, "TITLE_REQUIRED");
-    }
-
-    if (typeof content !== 'string' && typeof content !== 'undefined'){
-        throw new AppError('Content is Must be String', 400, 'INVALID_CONTENT');
-    }
-
-    const note = await notesService.createNote(req.userId!, title, content);
+const createNote = asyncHandler(async (req:Request<{},{},CreateNoteInput>, res:Response) => {
+    const {title,content,isPinned,highlightColor} = parseOrThrow(createNoteSchema, req.body);
+    
+    const note = await notesService.createNote(req.userId!, title, content, {isPinned,highlightColor});
     res.status(201).json({success: true, data: {note}});
 });
 
 const getAllNotes = asyncHandler(async (req:Request, res:Response) => {
-   const search = req.query.search;
-   if (search !== undefined && typeof search !== 'string') {
-       throw new AppError('Search must be a string', 400, 'INVALID_SEARCH');
-   }
-   const notes = await notesService.getAllNotes(req.userId!, search);
+    const {search,sort} = parseOrThrow(notesQuerySchema, req.query);
+
+   const notes = await notesService.getAllNotes(req.userId!, {searchTerm: search, sort});
 
    res.status(200).json({success: true, data: {notes}});
 
@@ -50,26 +32,10 @@ const getNoteById = asyncHandler(async (req:Request<NoteParams>, res:Response) =
    res.status(200).json({success: true, data: {note}});
 });
 
-const  updateNote = asyncHandler(async (req:Request<NoteParams,{},UpdateNoteBody>, res:Response) => {
+const updateNote = asyncHandler(async (req:Request<NoteParams,{},UpdateNoteInput>, res:Response) => {
+    const updates = parseOrThrow(updateNoteSchema, req.body);
 
-const {title,content} = req.body;
-
-if (title === undefined && content === undefined) {
-    throw new AppError(
-        'At least one of title or content is required',
-        400,
-        'NO_UPDATE_FIELDS'
-    );
-}
-  if((typeof title !== 'string' || title.trim().length === 0) && title !== undefined){
-        throw new AppError('Title is Required', 400, "TITLE_REQUIRED");
-    }
-
-    if (typeof content !== 'string' && typeof content !== 'undefined'){
-        throw new AppError('Content is Must be String', 400, 'INVALID_CONTENT');
-    }
-
-const note = await notesService.updateNote(req.userId!, req.params.id, {title,content});
+    const note = await notesService.updateNote(req.userId!, req.params.id, updates);
 
 res.status(200).json({success: true, data: {note}});
 
