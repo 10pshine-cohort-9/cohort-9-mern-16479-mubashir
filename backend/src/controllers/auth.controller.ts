@@ -1,61 +1,76 @@
 import {Request,Response} from 'express';
 import  authService  from '../services/auth.service';
 import asyncHandler from '../utils/asyncHandler';
-import  AppError from '../utils/Errors';
-
-interface signupBody{
-    name: string;
-    email: string;
-    password: string;
-}
-
-interface loginBody{
-    email: string;
-    password: string;
-}
-
+import ms from 'ms';
+import { signupSchema, loginSchema } from '../validators/auth.validator';
+import type { SignupInput, LoginInput } from '../validators/auth.validator';
+import parseOrThrow from '../utils/parseOrThrow';
+import AppError from '../utils/Errors';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+interface PublicUser{
+    id: string;
+    name: string;
+    email: string;
+}
+
+interface AuthResponseBody{
+    success: boolean;
+    data: { user: PublicUser };
+}
+
+interface LogoutResponseBody{
+    success: boolean;
+    data: { message: string };
+}
+
 function setTokenCookie(res:Response, token: string): void {
+    const expiry = process.env.JWT_EXPIRES_IN || '7d';
     res.cookie('token', token, {
         httpOnly: true,
         secure: isProduction,
         sameSite: 'lax',
-        maxAge: 1000 * 60 * 60 * 24 * 7,
+        maxAge: ms(expiry as ms.StringValue),
 
     })
 }
 
 
-const signup = asyncHandler(async (req:Request<{}, {}, signupBody>, res:Response) => {
-    const {name,email,password} = req.body;
+const signup = asyncHandler(async (req:Request<{}, AuthResponseBody, SignupInput>, res:Response<AuthResponseBody>) => {
+    const {name,email,password} = parseOrThrow(signupSchema, req.body);
 
-    if (!name || !email || !password){
-        throw new AppError('Missing required fields', 400, "MISSING_FIELDS");
+    try{
+
+        const result = await authService.signup(name,email,password);
+        setTokenCookie(res, result.token);
+        res.status(201).json({success: true, data: {user: result.user}});
+    }catch(error){
+        if (error instanceof AppError){
+            throw error;
+        }
+        throw new AppError('Signup failed', 500, 'SIGNUP_FAILED');
     }
 
-    const result = await authService.signup(name,email,password);
-
-  setTokenCookie(res, result.token);
-
-    res.status(201).json({success: true, data: {user: result.user}});
 });
 
-const login = asyncHandler(async (req:Request<{}, {}, loginBody>, res:Response) => {
-    const {email,password} = req.body;
+const login = asyncHandler(async (req:Request<{}, AuthResponseBody, LoginInput>, res:Response<AuthResponseBody>) => {
+    const {email,password} = parseOrThrow(loginSchema, req.body);
 
-    if (!email || !password){
-        throw new AppError('Missing required fields', 400, "MISSING_FIELDS");
+    try{
+        const result = await authService.login(email,password);
+        setTokenCookie(res, result.token);
+        res.status(200).json({success: true, data: {user: result.user}});
+    }catch(error){
+        if (error instanceof AppError){
+            throw error;
+        }
+        throw new AppError('Login failed', 500, 'LOGIN_FAILED');
     }
-
-    const result = await authService.login(email,password);
-    setTokenCookie(res, result.token);
-    res.status(200).json({success: true, data: {user: result.user}});
 });
 
 
-const logout = asyncHandler(async (req:Request, res:Response) => {
+const logout = asyncHandler(async (req:Request<{},LogoutResponseBody>, res:Response<LogoutResponseBody>) => {
 
     res.clearCookie('token',{
         httpOnly: true,
@@ -67,9 +82,16 @@ const logout = asyncHandler(async (req:Request, res:Response) => {
     res.status(200).json({success: true, data: {message: 'Logged out successfully'}});
 });
 
-const getMe = asyncHandler(async (req:Request, res:Response) => {
-    const user = await authService.getUserById(req.userId as string);
-    res.status(200).json({success: true, data: {user}});
+const getMe = asyncHandler(async (req:Request<{},AuthResponseBody>, res:Response<AuthResponseBody>) => {
+    try{
+        const user = await authService.getUserById(req.userId as string);
+        res.status(200).json({success: true, data: {user: {id: user._id.toString(), name: user.name, email: user.email}}});
+    }catch(error){
+        if (error instanceof AppError){
+            throw error;
+        }
+        throw new AppError('Could not load user', 500, 'GET_ME_FAILED');
+    }
 });
 
 
