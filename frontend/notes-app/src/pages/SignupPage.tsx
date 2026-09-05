@@ -1,8 +1,6 @@
-import {useState} from 'react';
-import type {FormEvent} from 'react';
+import {useState, type SubmitEvent} from 'react';
 import {Link, useNavigate} from 'react-router-dom';
 import {useAuth} from '../context/AuthContext';
-import axios from 'axios';
 import {NotebookPen,User,Mail,LockIcon} from 'lucide-react';
 import {validateEmail,validatePassword,validateName} from '../utils/validation';
 import './SignupPage.css'
@@ -32,7 +30,7 @@ function SignupPage(){
         setPasswordError(validatePassword(password) ?? '')
     }
 
-    async function handleSubmit(e:FormEvent<HTMLFormElement>){
+    async function handleSubmit(e: SubmitEvent<HTMLFormElement>){
         e.preventDefault();
         setError('');
         setIsSubmitting(true);
@@ -45,17 +43,16 @@ function SignupPage(){
             setNameError(nameValidationError ?? '');
             setEmailError(emailValidationError ?? '');
             setPasswordError(passwordValidationError ?? '');
+            setIsSubmitting(false);
             return;
         }
-        setIsSubmitting(true);
         try{
             await signup(name,email,password);
             navigate('/dashboard');
         }
         catch(err:unknown){
-            if(axios.isAxiosError(err)){
-                const msg = err.response?.data?.error?.message || "Something went wrong";
-                setError(msg);
+            if(err instanceof Error){
+                setError(err.message);
             }
             else{
                 setError('Something went wrong');
@@ -66,8 +63,7 @@ function SignupPage(){
         }
 
     }
-    return (<>
-
+    return (
         <div className="SignupPage">
     
             <div className="SignupLeftPanel">
@@ -137,7 +133,7 @@ function SignupPage(){
         </div>
     
         </div>
-        </>);
+        );
 }
 
 

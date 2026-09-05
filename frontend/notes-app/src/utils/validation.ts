@@ -1,12 +1,35 @@
 export function validateEmail(value: string): string | null {
+    if (value == null) {
+        return 'Email is required'
+    }
+
     const trimmed = value.trim()
 
     if (trimmed.length === 0) {
         return 'Email is required'
     }
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+    if (/\s/.test(trimmed)) {
+        return 'Enter a valid email address'
+    }
+    const atIndex = trimmed.indexOf('@')
+    if (atIndex <= 0 || atIndex !== trimmed.lastIndexOf('@')) {
+        return 'Enter a valid email address'
+    }
 
-    if (!emailPattern.test(trimmed)) {
+    const localPart = trimmed.slice(0, atIndex)
+    const domainPart = trimmed.slice(atIndex + 1)
+    const dotIndex = domainPart.lastIndexOf('.')
+
+    if (dotIndex <= 0 || dotIndex === domainPart.length - 1) {
+        return 'Enter a valid email address'
+    }
+
+    const tld = domainPart.slice(dotIndex + 1)
+    if (tld.length < 2) {
+        return 'Enter a valid email address'
+    }
+
+    if (localPart.length === 0 || domainPart.length === 0) {
         return 'Enter a valid email address'
     }
 
@@ -14,7 +37,7 @@ export function validateEmail(value: string): string | null {
 }
 
 export function validatePassword(value: string): string | null {
-    if (value.length === 0) {
+    if (value == null || value.length === 0) {
         return 'Password is required'
     }
     if (value.length < 8) {
@@ -22,7 +45,7 @@ export function validatePassword(value: string): string | null {
     }
 
     const hasLetter = /[a-zA-Z]/.test(value)
-    const hasNumber = /[0-9]/.test(value)
+    const hasNumber = /\d/.test(value)
     if (!hasLetter || !hasNumber) {
         return 'Password must contain at least one letter and one number'
     }
@@ -31,6 +54,10 @@ export function validatePassword(value: string): string | null {
 }
 
 export function validateName(value: string): string | null {
+    if (value == null) {
+        return 'Name is required'
+    }
+
     const trimmed = value.trim()
     if (trimmed.length === 0) {
         return 'Name is required'

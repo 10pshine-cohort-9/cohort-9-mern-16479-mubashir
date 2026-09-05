@@ -7,3 +7,9 @@ build/
 *.log
 
 .DS_Store
+
+.scannerwork/
+.sonar/
+backend/coverage/
+backend/.nyc_output/
+frontend/notes-app/coverage/

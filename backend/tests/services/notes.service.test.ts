@@ -19,7 +19,22 @@ interface FakeNoteFindQuery {
 
 interface NotesSearchFilter {
     userId: string;
-    $or?: Array<Record<string, unknown>>;
+    $or?: Array<{
+        title?: { $regex: string; $options: string };
+        content?: { $regex: string; $options: string };
+    }>;
+}
+
+function getSearchTokens(filter: NotesSearchFilter): string[] {
+    const tokens: string[] = [];
+
+    for (const clause of filter.$or ?? []) {
+        if (clause.title?.$regex) {
+            tokens.push(clause.title.$regex);
+        }
+    }
+
+    return tokens;
 }
 
 interface FakeSavedNote {
@@ -100,7 +115,34 @@ describe('notesService', () => {
 
             const filterUsed = findStub.firstCall.args[0] as unknown as NotesSearchFilter;
             expect(filterUsed.userId).to.equal('user-1');
-            expect(filterUsed.$or).to.have.length(4);
+            expect(getSearchTokens(filterUsed)).to.deep.equal(['coding', 'Guy']);
+        });
+
+        it('splits underscore, camelCase, and letter-digit search terms into separate tokens', async () => {
+            const searchCases = [
+                { searchTerm: 'foo_bar', expectedTokens: ['foo', 'bar'] },
+                { searchTerm: 'HTTPServer', expectedTokens: ['HTTP', 'Server'] },
+                { searchTerm: 'version2', expectedTokens: ['version', '2'] },
+                { searchTerm: '2fa', expectedTokens: ['2', 'fa'] },
+            ];
+
+            for (const searchCase of searchCases) {
+                const sortStub = sinon.stub().resolves([]);
+                const findQuery: FakeNoteFindQuery = { sort: sortStub };
+                const findStub = sinon.stub(Note, 'find').returns(findQuery as unknown as ReturnType<typeof Note.find>);
+
+                try {
+                    await runAsync(notesService.getAllNotes('user-1', { searchTerm: searchCase.searchTerm }));
+                } catch (err) {
+                    throw err;
+                }
+
+                const filterUsed = findStub.firstCall.args[0] as unknown as NotesSearchFilter;
+                expect(getSearchTokens(filterUsed)).to.deep.equal(searchCase.expectedTokens);
+                expect(filterUsed.$or).to.have.length(searchCase.expectedTokens.length * 2);
+
+                findStub.restore();
+            }
         });
 
         it('sorts pinned notes first no matter which sort option is picked', async () => {

@@ -1,4 +1,4 @@
-import {createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import {createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
 import {authApi} from '../api/auth.api';
 import axios from 'axios';
 
@@ -14,6 +14,10 @@ function getAuthErrorMessage(error: unknown): string {
 
         if (typeof message === 'string') {
             return message;
+        }
+
+        if (message && typeof message === 'object' && 'msg' in message && typeof message.msg === 'string') {
+            return message.msg;
         }
 
         if (error.response?.status === 401) {
@@ -48,7 +52,7 @@ interface AuthContextType{
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({children}: {children: ReactNode}){
+export function AuthProvider({children}: Readonly<{children: ReactNode}>){
     const [user,setUser]= useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [authError,setAuthError] = useState<string | null>(null);
@@ -63,7 +67,7 @@ export function AuthProvider({children}: {children: ReactNode}){
         });
     },[]);
 
-    async function signup(name:string,email:string, password: string): Promise<User>{
+    const signup = useCallback(async (name:string,email:string, password: string): Promise<User> => {
        try{
             setAuthError(null);
            const response = await authApi.signup(name,email,password);
@@ -77,9 +81,9 @@ export function AuthProvider({children}: {children: ReactNode}){
             setAuthError(msg);
             throw new Error(msg);
         }
-    }
+    }, []);
 
-    async function login(email:string, password: string): Promise<User>{
+    const login = useCallback(async (email:string, password: string): Promise<User> => {
         try{
             setAuthError(null);
 
@@ -94,9 +98,9 @@ export function AuthProvider({children}: {children: ReactNode}){
             setAuthError(msg);
             throw new Error(msg);
         }
-}
+}, []);
 
-async function logout(): Promise<void>{
+const logout = useCallback(async (): Promise<void> => {
     try{
         setAuthError(null);
         await authApi.logout();
@@ -108,9 +112,9 @@ async function logout(): Promise<void>{
     finally{
     setUser(null);
     }
-}
+}, []);
 
-const value : AuthContextType = {
+const value = useMemo<AuthContextType>(() => ({
     user,
     isAuthenticated: !!user,
     isLoading,
@@ -118,7 +122,7 @@ const value : AuthContextType = {
     authError,
     login,
     logout
-};
+}), [user, isLoading, authError, signup, login, logout]);
 
 return (
     <AuthContext.Provider value={value}>
